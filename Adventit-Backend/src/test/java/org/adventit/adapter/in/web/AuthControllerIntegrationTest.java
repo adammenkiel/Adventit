@@ -1,20 +1,21 @@
 package org.adventit.adapter.in.web;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -27,9 +28,6 @@ class AuthControllerIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @BeforeEach
     void clearUsers() {
         jdbcTemplate.update("DELETE FROM users");
@@ -37,11 +35,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void registrationStoresHashedPasswordAndRejectsDuplicateEmail() throws Exception {
-        CsrfSession csrf = newCsrfSession();
-
         mockMvc.perform(post("/api/auth/register")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
                         .contentType("application/json")
                         .content("""
                                 {"email":"Traveler@Example.com","password":"correct-horse"}
@@ -56,8 +50,6 @@ class AuthControllerIntegrationTest {
         org.junit.jupiter.api.Assertions.assertNotEquals("correct-horse", storedPassword);
 
         mockMvc.perform(post("/api/auth/register")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
                         .contentType("application/json")
                         .content("""
                                 {"email":"traveler@example.com","password":"another-password"}
@@ -67,59 +59,59 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void registrationIsAvailableAtAuthApiPath() throws Exception {
-        CsrfSession csrf = newCsrfSession("/auth/api/csrf");
-
+    void legacyAuthApiAliasIsRejected() throws Exception {
         mockMvc.perform(post("/auth/api/register")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
                         .contentType("application/json")
                         .content("""
                                 {"email":"traveler@example.com","password":"correct-horse"}
                                 """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email", is("traveler@example.com")));
+                .andExpect(status().isUnauthorized());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                0,
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Integer.class));
     }
 
     @Test
-    void loginCreatesAuthenticatedSessionAndLogoutEndsIt() throws Exception {
-        CsrfSession csrf = newCsrfSession();
-        register(csrf, "traveler@example.com", "correct-horse");
+    void loginReturnsAuthenticationCookieAndLogoutClearsIt() throws Exception {
+        register("traveler@example.com", "correct-horse");
 
         MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
                         .contentType("application/json")
                         .content("""
                                 {"email":"traveler@example.com","password":"correct-horse"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email", is("traveler@example.com")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("token=")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("SameSite=Lax")))
                 .andReturn();
 
-        MockHttpSession authenticatedSession =
-                (MockHttpSession) loginResult.getRequest().getSession(false);
-        mockMvc.perform(get("/api/auth/me").session(authenticatedSession))
+        Cookie authenticationCookie = authenticationCookie(loginResult);
+        mockMvc.perform(get("/api/auth/me").cookie(authenticationCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email", is("traveler@example.com")));
 
-        mockMvc.perform(post("/auth/api/logout")
-                        .session(authenticatedSession)
-                        .header("X-CSRF-TOKEN", csrf.token()))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + authenticationCookie.getValue()))
+                .andExpect(status().isUnauthorized());
 
-        mockMvc.perform(get("/api/auth/me").session(authenticatedSession))
+        MvcResult logoutResult = mockMvc.perform(post("/api/auth/logout")
+                        .cookie(authenticationCookie))
+                .andExpect(status().isNoContent())
+                .andReturn();
+        org.junit.jupiter.api.Assertions.assertTrue(
+                logoutResult.getResponse().getHeader(HttpHeaders.SET_COOKIE).contains("Max-Age=0"));
+
+        mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void loginRejectsIncorrectPassword() throws Exception {
-        CsrfSession csrf = newCsrfSession();
-        register(csrf, "traveler@example.com", "correct-horse");
+        register("traveler@example.com", "correct-horse");
 
         mockMvc.perform(post("/api/auth/login")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
                         .contentType("application/json")
                         .content("""
                                 {"email":"traveler@example.com","password":"wrong-password"}
@@ -128,28 +120,18 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.code", is("INVALID_CREDENTIALS")));
     }
 
-    private void register(CsrfSession csrf, String email, String password) throws Exception {
+    private void register(String email, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
                         .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(
-                                new AuthController.RegisterRequest(email, password))))
+                        .content("""
+                                {"email":"%s","password":"%s"}
+                                """.formatted(email, password)))
                 .andExpect(status().isCreated());
     }
 
-    private CsrfSession newCsrfSession() throws Exception {
-        return newCsrfSession("/api/auth/csrf");
-    }
-
-    private CsrfSession newCsrfSession(String path) throws Exception {
-        MvcResult result = mockMvc.perform(get(path)).andExpect(status().isOk()).andReturn();
-        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
-        return new CsrfSession(
-                (MockHttpSession) result.getRequest().getSession(false),
-                response.get("token").asText());
-    }
-
-    private record CsrfSession(MockHttpSession session, String token) {
+    private Cookie authenticationCookie(MvcResult result) {
+        String setCookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        String token = setCookie.substring("token=".length(), setCookie.indexOf(';'));
+        return new Cookie("token", token);
     }
 }
