@@ -67,6 +67,21 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void registrationIsAvailableAtAuthApiPath() throws Exception {
+        CsrfSession csrf = newCsrfSession("/auth/api/csrf");
+
+        mockMvc.perform(post("/auth/api/register")
+                        .session(csrf.session())
+                        .header("X-CSRF-TOKEN", csrf.token())
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"traveler@example.com","password":"correct-horse"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email", is("traveler@example.com")));
+    }
+
+    @Test
     void loginCreatesAuthenticatedSessionAndLogoutEndsIt() throws Exception {
         CsrfSession csrf = newCsrfSession();
         register(csrf, "traveler@example.com", "correct-horse");
@@ -88,7 +103,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email", is("traveler@example.com")));
 
-        mockMvc.perform(post("/api/auth/logout")
+        mockMvc.perform(post("/auth/api/logout")
                         .session(authenticatedSession)
                         .header("X-CSRF-TOKEN", csrf.token()))
                 .andExpect(status().isNoContent());
@@ -124,7 +139,11 @@ class AuthControllerIntegrationTest {
     }
 
     private CsrfSession newCsrfSession() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+        return newCsrfSession("/api/auth/csrf");
+    }
+
+    private CsrfSession newCsrfSession(String path) throws Exception {
+        MvcResult result = mockMvc.perform(get(path)).andExpect(status().isOk()).andReturn();
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         return new CsrfSession(
                 (MockHttpSession) result.getRequest().getSession(false),

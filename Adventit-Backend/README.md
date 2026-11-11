@@ -21,6 +21,8 @@ All endpoints use JSON except where noted. Register and login require an active 
 | `GET` | `/api/auth/me` | Return the authenticated account |
 | `POST` | `/api/auth/logout` | Invalidate the session |
 
+The same authentication routes are also available under `/auth/api` (for example, `POST /auth/api/register`).
+
 Emails are normalized to lowercase. Passwords must contain 8-72 characters and are stored as BCrypt hashes. Registration returns `409` for an existing email; invalid credentials return `401`.
 
 The browser session cookie is HTTP-only and uses `SameSite=Lax`. CSRF protection remains enabled for state-changing requests.
