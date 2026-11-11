@@ -29,15 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
     private final RegisterUserUseCase registerUser;
     private final AuthenticationManager authenticationManager;
-    private final SecurityContextRepository securityContextRepository;
 
     public AuthController(
             RegisterUserUseCase registerUser,
-            AuthenticationManager authenticationManager,
-            SecurityContextRepository securityContextRepository) {
+            AuthenticationManager authenticationManager
+    ) {
         this.registerUser = registerUser;
         this.authenticationManager = authenticationManager;
-        this.securityContextRepository = securityContextRepository;
     }
 
     @PostMapping("/register")
@@ -51,14 +49,17 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
+
         Authentication authentication = authenticationManager.authenticate(
-                UsernamePasswordAuthenticationToken.unauthenticated(
+                new UsernamePasswordAuthenticationToken(
                         request.email().trim().toLowerCase(Locale.ROOT),
-                        request.password()));
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
-        securityContextRepository.saveContext(context, servletRequest, servletResponse);
+                        request.password()
+                )
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        User user = (User) authentication.getPrincipal();
+        //Fix user
         return new AuthResponse(authentication.getName());
     }
 
