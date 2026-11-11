@@ -1,0 +1,44 @@
+### Gradle ###
+Adventit-Backend/.gradle/
+Adventit-Backend/build/
+!Adventit-Backend/gradle/wrapper/gradle-wrapper.jar
+!Adventit-Backend/**/src/main/**/build/
+!Adventit-Backend/**/src/test/**/build/
+Adventit-Backend/.kotlin/
+
+### IntelliJ IDEA ###
+Adventit-Backend/.idea/modules.xml
+Adventit-Backend/.idea/jarRepositories.xml
+Adventit-Backend/.idea/compiler.xml
+Adventit-Backend/.idea/libraries/
+Adventit-Backend/*.iws
+Adventit-Backend/*.iml
+Adventit-Backend/*.ipr
+Adventit-Backend/out/
+!Adventit-Backend/**/src/main/**/out/
+!Adventit-Backend/**/src/test/**/out/
+
+### Eclipse ###
+Adventit-Backend/.apt_generated/
+Adventit-Backend/.classpath
+Adventit-Backend/.factorypath
+Adventit-Backend/.project
+Adventit-Backend/.settings/
+Adventit-Backend/.springBeans
+Adventit-Backend/.sts4-cache/
+Adventit-Backend/bin/
+!Adventit-Backend/**/src/main/**/bin/
+!Adventit-Backend/**/src/test/**/bin/
+
+### NetBeans ###
+Adventit-Backend/nbproject/private/
+Adventit-Backend/nbbuild/
+Adventit-Backend/dist/
+Adventit-Backend/nbdist/
+Adventit-Backend/.nb-gradle/
+
+### VS Code ###
+Adventit-Backend/.vscode/
+
+### Mac OS ###
+.DS_Store
