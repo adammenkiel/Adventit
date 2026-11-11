@@ -67,6 +67,12 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void registrationPathDoesNotRequireAuthenticationForOtherHttpMethods() throws Exception {
+        mockMvc.perform(get("/api/auth/register"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
     void loginCreatesAuthenticatedSessionAndLogoutEndsIt() throws Exception {
         CsrfSession csrf = newCsrfSession();
         register(csrf, "traveler@example.com", "correct-horse");
