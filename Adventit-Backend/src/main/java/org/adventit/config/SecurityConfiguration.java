@@ -34,13 +34,20 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/auth/api/csrf").permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/auth/api/register",
+                                "/auth/api/login").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .logout(logout -> logout
-                        .logoutUrl("/api/auth/logout")
+                        .logoutRequestMatcher(request -> "POST".equals(request.getMethod())
+                                && ("/api/auth/logout".equals(request.getRequestURI())
+                                        || "/auth/api/logout".equals(request.getRequestURI())))
                         .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)));
         return http.build();
     }
