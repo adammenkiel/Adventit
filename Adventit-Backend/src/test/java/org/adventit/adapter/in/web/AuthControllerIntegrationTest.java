@@ -3,6 +3,7 @@ package org.adventit.adapter.in.web;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -69,6 +70,22 @@ class AuthControllerIntegrationTest {
         org.junit.jupiter.api.Assertions.assertEquals(
                 0,
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Integer.class));
+    }
+
+    @Test
+    void registrationPathDoesNotRequireAuthenticationForOtherHttpMethods() throws Exception {
+        mockMvc.perform(get("/api/auth/register"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void corsAllowsCredentialedRequestsFromFrontendOrigin() throws Exception {
+        mockMvc.perform(options("/api/auth/login")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test
