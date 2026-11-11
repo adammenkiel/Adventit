@@ -67,18 +67,9 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void registrationIsAvailableAtAuthApiPath() throws Exception {
-        CsrfSession csrf = newCsrfSession("/auth/api/csrf");
-
-        mockMvc.perform(post("/auth/api/register")
-                        .session(csrf.session())
-                        .header("X-CSRF-TOKEN", csrf.token())
-                        .contentType("application/json")
-                        .content("""
-                                {"email":"traveler@example.com","password":"correct-horse"}
-                                """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email", is("traveler@example.com")));
+    void registrationPathDoesNotRequireAuthenticationForOtherHttpMethods() throws Exception {
+        mockMvc.perform(get("/api/auth/register"))
+                .andExpect(status().isMethodNotAllowed());
     }
 
     @Test
@@ -103,7 +94,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email", is("traveler@example.com")));
 
-        mockMvc.perform(post("/auth/api/logout")
+        mockMvc.perform(post("/api/auth/logout")
                         .session(authenticatedSession)
                         .header("X-CSRF-TOKEN", csrf.token()))
                 .andExpect(status().isNoContent());
@@ -139,11 +130,7 @@ class AuthControllerIntegrationTest {
     }
 
     private CsrfSession newCsrfSession() throws Exception {
-        return newCsrfSession("/api/auth/csrf");
-    }
-
-    private CsrfSession newCsrfSession(String path) throws Exception {
-        MvcResult result = mockMvc.perform(get(path)).andExpect(status().isOk()).andReturn();
+        MvcResult result = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         return new CsrfSession(
                 (MockHttpSession) result.getRequest().getSession(false),
