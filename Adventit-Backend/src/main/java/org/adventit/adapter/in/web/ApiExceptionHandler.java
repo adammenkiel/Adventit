@@ -25,7 +25,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> invalidRequest() {
         return ResponseEntity.badRequest()
-                .body(new ApiError("INVALID_REQUEST", "Email or password is invalid"));
+                .body(new ApiError("INVALID_REQUEST", "Request data is invalid"));
     }
 
     public record ApiError(String code, String message) {
