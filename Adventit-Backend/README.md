@@ -1,29 +1,23 @@
 # Adventit backend
 
-Spring Boot backend with a hexagonal structure. The first feature is session-based account authentication, backed by SQLite.
+Spring Boot backend with a hexagonal structure and SQLite-backed account authentication.
 
 ## Run
 
-From this directory, run `.\gradlew.bat bootRun`. The default database is `adventit.db` in the working directory. Set `DATABASE_URL` to use a different SQLite JDBC URL. For HTTPS deployments, set `SESSION_COOKIE_SECURE=true`.
+Set `AUTH_JWT_SECRET` to a Base64-encoded random key of at least 32 bytes, then run `.\gradlew.bat bootRun` from this directory. The default database is `adventit.db` in the working directory; set `DATABASE_URL` to use a different SQLite JDBC URL. `AUTH_JWT_EXPIRATION` accepts a Java duration (default `PT1H`). Set `APP_CORS_ALLOWED_ORIGINS` to a comma-separated list of exact frontend origins (default `http://localhost:5173`). For a frontend on a different site, set `AUTH_COOKIE_SAME_SITE=None` and `AUTH_COOKIE_SECURE=true` (requires HTTPS); otherwise the cookie will not be sent by browsers on cross-site requests.
 
 ## Authentication API
 
-All endpoints use JSON except where noted. Register and login require an active CSRF token:
-
-1. Call `GET /api/auth/csrf` and retain the session cookie and returned `token`.
-2. Send that same cookie and an `X-CSRF-TOKEN` header with each `POST` request.
+All endpoints use JSON. Login returns an HTTP-only `token` cookie; browsers send it automatically on subsequent requests when the client enables credentials (for example, `fetch(url, { credentials: "include" })`). Authentication is cookie-based and does not use an `Authorization` header. The API is available only under `/api/auth`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/auth/csrf` | Start a session and return a CSRF token |
 | `POST` | `/api/auth/register` | Create an account with `{ "email": "...", "password": "..." }` |
-| `POST` | `/api/auth/login` | Authenticate and establish the session cookie |
+| `POST` | `/api/auth/login` | Authenticate and set the signed token cookie |
 | `GET` | `/api/auth/me` | Return the authenticated account |
-| `POST` | `/api/auth/logout` | Invalidate the session |
+| `POST` | `/api/auth/logout` | Clear the token cookie |
 
 Emails are normalized to lowercase. Passwords must contain 8-72 characters and are stored as BCrypt hashes. Registration returns `409` for an existing email; invalid credentials return `401`.
-
-The browser session cookie is HTTP-only and uses `SameSite=Lax`. CSRF protection remains enabled for state-changing requests.
 
 ## Test
 
