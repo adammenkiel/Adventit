@@ -3,6 +3,7 @@ package org.adventit.config;
 import java.util.List;
 import org.adventit.adapter.in.security.JwtCookieAuthenticationFilter;
 import org.adventit.application.port.out.AuthenticationTokenProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -29,10 +30,12 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             UserDetailsService userDetailsService,
-            AuthenticationTokenProvider authenticationTokenProvider) throws Exception {
+            AuthenticationTokenProvider authenticationTokenProvider,
+            @Value("${app.cors.allowed-origins:http://localhost:5173}") List<String> allowedOrigins)
+            throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource(allowedOrigins)))
                 .securityContext(securityContext -> securityContext
                         .securityContextRepository(new NullSecurityContextRepository()))
                 .sessionManagement(session -> session
@@ -49,9 +52,9 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-    private CorsConfigurationSource corsConfigurationSource() {
+    private CorsConfigurationSource corsConfigurationSource(List<String> allowedOrigins) {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
-        corsConfiguration.setAllowedOrigins(List.of("http://localhost:5173"));
+        corsConfiguration.setAllowedOrigins(allowedOrigins);
         corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowedHeaders(List.of("*"));
         corsConfiguration.setAllowCredentials(true);

@@ -28,16 +28,22 @@ public class AuthController {
     private final AuthenticateUserUseCase authenticateUser;
     private final Duration tokenLifetime;
     private final boolean secureCookie;
+    private final String cookieSameSite;
 
     public AuthController(
             RegisterUserUseCase registerUser,
             AuthenticateUserUseCase authenticateUser,
             @Value("${app.auth.jwt-expiration:PT1H}") Duration tokenLifetime,
-            @Value("${app.auth.cookie-secure:false}") boolean secureCookie) {
+            @Value("${app.auth.cookie-secure:false}") boolean secureCookie,
+            @Value("${app.auth.cookie-same-site:Lax}") String cookieSameSite) {
         this.registerUser = registerUser;
         this.authenticateUser = authenticateUser;
         this.tokenLifetime = tokenLifetime;
         this.secureCookie = secureCookie;
+        this.cookieSameSite = cookieSameSite;
+        if ("None".equalsIgnoreCase(cookieSameSite) && !secureCookie) {
+            throw new IllegalArgumentException("SameSite=None requires secure authentication cookies");
+        }
     }
 
     @PostMapping("/register")
@@ -70,7 +76,7 @@ public class AuthController {
         return ResponseCookie.from("token", token)
                 .httpOnly(true)
                 .secure(secureCookie)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(maxAge)
                 .build();

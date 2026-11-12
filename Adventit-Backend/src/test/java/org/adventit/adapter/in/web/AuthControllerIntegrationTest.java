@@ -113,6 +113,15 @@ class AuthControllerIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + authenticationCookie.getValue()))
                 .andExpect(status().isUnauthorized());
 
+        mockMvc.perform(get("/api/protected/resource"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/protected/resource")
+                        .cookie(authenticationCookie)
+                        .header("Origin", "http://localhost:5173"))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+
         MvcResult logoutResult = mockMvc.perform(post("/api/auth/logout")
                         .cookie(authenticationCookie))
                 .andExpect(status().isNoContent())
