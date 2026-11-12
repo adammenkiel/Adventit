@@ -35,9 +35,29 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            getToken(request)
-                    .flatMap(authenticationTokenProvider::getSubject)
-                    .ifPresent(subject -> authenticate(subject, request));
+            Optional<String> token = getToken(request);
+            if (token.isPresent()) {
+                Optional<String> subject = authenticationTokenProvider.getSubject(token.get());
+                if (subject.isEmpty()) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authentication token is incorrect!");
+                    return;
+                }
+                UserDetails userDetails;
+                try {
+                    userDetails = userDetailsService.loadUserByUsername(subject.get());
+                } catch (UsernameNotFoundException exception) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authentication token is incorrect!");
+                    return;
+                }
+
+                UsernamePasswordAuthenticationToken authentication =
+                        UsernamePasswordAuthenticationToken.authenticated(
+                                userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContext context = SecurityContextHolder.createEmptyContext();
+                context.setAuthentication(authentication);
+                SecurityContextHolder.setContext(context);
+            }
         }
         filterChain.doFilter(request, response);
     }
@@ -51,22 +71,5 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
                 .filter(cookie -> "token".equals(cookie.getName()))
                 .map(Cookie::getValue)
                 .findFirst();
-    }
-
-    private void authenticate(String subject, HttpServletRequest request) {
-        UserDetails userDetails;
-        try {
-            userDetails = userDetailsService.loadUserByUsername(subject);
-        } catch (UsernameNotFoundException exception) {
-            return;
-        }
-
-        UsernamePasswordAuthenticationToken authentication =
-                UsernamePasswordAuthenticationToken.authenticated(
-                        userDetails, null, userDetails.getAuthorities());
-        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
     }
 }

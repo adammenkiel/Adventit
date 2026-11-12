@@ -146,6 +146,12 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.code", is("INVALID_CREDENTIALS")));
     }
 
+    @Test
+    void invalidAuthenticationCookieIsRejectedByFilter() throws Exception {
+        mockMvc.perform(get("/api/auth/me").cookie(new Cookie("token", "invalid-token")))
+                .andExpect(status().isForbidden());
+    }
+
     private void register(String email, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
