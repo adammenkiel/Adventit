@@ -19,6 +19,10 @@ All endpoints use JSON. Login returns an HTTP-only `token` cookie; browsers send
 
 Emails are normalized to lowercase. Passwords must contain 8-72 characters and are stored as BCrypt hashes. Registration returns `409` for an existing email; invalid credentials return `401`.
 
+## Trip planning
+
+Set `GOOGLE_ROUTES_API_KEY` to an API key with the Google Routes API enabled. `POST /app/trip` requires an authenticated user and accepts `{ "startPlace": "...", "endPlace": "..." }`, where both values are place addresses. It returns route options for public transport (`TRANSIT`) and walking (`WALK`), with duration, distance, and an encoded polyline for each available route. The endpoint can be overridden with `GOOGLE_ROUTES_API_ENDPOINT` when needed.
+
 ## Test
 
 Run `.\gradlew.bat test`.
