@@ -16,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.adventit.application.port.in.PlanTripUseCase;
+import org.adventit.application.port.in.AskQuestionUseCase;
 import org.adventit.domain.trip.TravelAlternative;
 import org.adventit.domain.trip.TravelMode;
 import org.adventit.domain.trip.TripPlan;
@@ -40,6 +41,9 @@ class AuthControllerIntegrationTest {
 
     @MockitoBean
     private PlanTripUseCase planTrip;
+
+    @MockitoBean
+    private AskQuestionUseCase askQuestion;
 
     @BeforeEach
     void clearUsers() {
@@ -166,6 +170,49 @@ class AuthControllerIntegrationTest {
                                 {"startPlace":"Central Station","endPlace":"City Museum"}
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void askingRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/app/ask")
+                        .contentType("application/json")
+                        .content("""
+                                {"question":"What is Adventit?"}
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticatedAskReturnsQwenAnswer() throws Exception {
+        register("traveler@example.com", "correct-horse");
+        Cookie authenticationCookie = login("traveler@example.com", "correct-horse");
+        when(askQuestion.ask("What is Adventit?")).thenReturn("A travel planning app.");
+
+        mockMvc.perform(post("/app/ask")
+                        .cookie(authenticationCookie)
+                        .contentType("application/json")
+                        .content("""
+                                {"question":"What is Adventit?"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer", is("A travel planning app.")));
+
+        verify(askQuestion).ask("What is Adventit?");
+    }
+
+    @Test
+    void askingRejectsBlankQuestion() throws Exception {
+        register("traveler@example.com", "correct-horse");
+        Cookie authenticationCookie = login("traveler@example.com", "correct-horse");
+
+        mockMvc.perform(post("/app/ask")
+                        .cookie(authenticationCookie)
+                        .contentType("application/json")
+                        .content("""
+                                {"question":" "}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("INVALID_REQUEST")));
     }
 
     @Test
