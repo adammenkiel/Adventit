@@ -2,10 +2,17 @@ package org.adventit.adapter.out.routes;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import org.adventit.application.port.out.RoutePlanner;
+import org.adventit.domain.trip.NavigationInstruction;
+import org.adventit.domain.trip.RouteLocation;
+import org.adventit.domain.trip.RouteStep;
 import org.adventit.domain.trip.TravelMode;
+import org.adventit.domain.trip.TransitDetails;
+import org.adventit.domain.trip.TransitLine;
+import org.adventit.domain.trip.TransitStop;
 import org.adventit.domain.trip.TripRoute;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -14,7 +21,10 @@ import org.springframework.web.client.RestClient;
 @Component
 public class GoogleRoutesRoutePlanner implements RoutePlanner {
     private static final String FIELD_MASK =
-            "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline";
+            "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,"
+                    + "routes.legs.steps.travelMode,routes.legs.steps.startLocation,"
+                    + "routes.legs.steps.endLocation,routes.legs.steps.transitDetails,"
+                    + "routes.legs.steps.navigationInstruction";
 
     private final RestClient restClient;
     private final String apiKey;
@@ -70,7 +80,57 @@ public class GoogleRoutesRoutePlanner implements RoutePlanner {
         return new TripRoute(
                 durationSeconds,
                 distanceMeters,
-                Objects.requireNonNull(encodedPolyline, "Google route encoded polyline is missing"));
+                Objects.requireNonNull(encodedPolyline, "Google route encoded polyline is missing"),
+                route.legs() == null
+                        ? List.of()
+                        : route.legs().stream()
+                                .filter(Objects::nonNull)
+                                .filter(leg -> leg.steps() != null)
+                                .flatMap(leg -> leg.steps().stream())
+                                .filter(Objects::nonNull)
+                                .map(GoogleRoutesRoutePlanner::toRouteStep)
+                                .toList());
+    }
+
+    private static RouteStep toRouteStep(GoogleStep step) {
+        return new RouteStep(
+                step.travelMode(),
+                toRouteLocation(step.startLocation()),
+                toRouteLocation(step.endLocation()),
+                step.navigationInstruction() == null
+                        ? null
+                        : new NavigationInstruction(
+                                step.navigationInstruction().maneuver(),
+                                step.navigationInstruction().instructions()),
+                toTransitDetails(step.transitDetails()));
+    }
+
+    private static RouteLocation toRouteLocation(GoogleLocation location) {
+        if (location == null || location.latLng() == null) {
+            return null;
+        }
+        return new RouteLocation(location.latLng().latitude(), location.latLng().longitude());
+    }
+
+    private static TransitDetails toTransitDetails(GoogleTransitDetails details) {
+        if (details == null) {
+            return null;
+        }
+        GoogleTransitLine line = details.transitLine();
+        return new TransitDetails(
+                details.departureStop() == null ? null : new TransitStop(details.departureStop().name()),
+                details.arrivalStop() == null ? null : new TransitStop(details.arrivalStop().name()),
+                toInstant(details.departureTime()),
+                toInstant(details.arrivalTime()),
+                details.headsign(),
+                line == null
+                        ? null
+                        : new TransitLine(
+                                line.name(), line.vehicle() == null ? null : line.vehicle().type()));
+    }
+
+    private static Instant toInstant(String timestamp) {
+        return timestamp == null ? null : Instant.parse(timestamp);
     }
 
     private record GoogleRoutesRequest(
@@ -85,9 +145,48 @@ public class GoogleRoutesRoutePlanner implements RoutePlanner {
     private record GoogleRoutesResponse(List<GoogleRoute> routes) {
     }
 
-    private record GoogleRoute(String duration, Integer distanceMeters, GooglePolyline polyline) {
+    private record GoogleRoute(
+            String duration, Integer distanceMeters, GooglePolyline polyline, List<GoogleLeg> legs) {
     }
 
     private record GooglePolyline(String encodedPolyline) {
+    }
+
+    private record GoogleLeg(List<GoogleStep> steps) {
+    }
+
+    private record GoogleStep(
+            String travelMode,
+            GoogleLocation startLocation,
+            GoogleLocation endLocation,
+            GoogleTransitDetails transitDetails,
+            GoogleNavigationInstruction navigationInstruction) {
+    }
+
+    private record GoogleLocation(GoogleLatLng latLng) {
+    }
+
+    private record GoogleLatLng(double latitude, double longitude) {
+    }
+
+    private record GoogleNavigationInstruction(String maneuver, String instructions) {
+    }
+
+    private record GoogleTransitDetails(
+            String arrivalTime,
+            GoogleTransitStop arrivalStop,
+            String departureTime,
+            GoogleTransitStop departureStop,
+            String headsign,
+            GoogleTransitLine transitLine) {
+    }
+
+    private record GoogleTransitStop(String name) {
+    }
+
+    private record GoogleTransitLine(String name, GoogleVehicle vehicle) {
+    }
+
+    private record GoogleVehicle(String type) {
     }
 }

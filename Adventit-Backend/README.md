@@ -21,7 +21,7 @@ Emails are normalized to lowercase. Passwords must contain 8-72 characters and a
 
 ## Trip planning
 
-Set `GOOGLE_ROUTES_API_KEY` to an API key with the Google Routes API enabled. `POST /app/trip` requires an authenticated user and accepts `{ "startPlace": "...", "endPlace": "..." }`, where both values are place addresses. It returns route options for public transport (`TRANSIT`) and walking (`WALK`), with duration, distance, and an encoded polyline for each available route. The endpoint can be overridden with `GOOGLE_ROUTES_API_ENDPOINT` when needed.
+Set `GOOGLE_ROUTES_API_KEY` to an API key with the Google Routes API enabled. `POST /app/trip` requires an authenticated user and accepts `{ "startPlace": "...", "endPlace": "..." }`, where both values are place addresses. It returns route options for public transport (`TRANSIT`) and walking (`WALK`), with duration, distance, an encoded polyline, and ordered journey steps for each available route. Transit steps include stop names, departure and arrival times, line and vehicle information, and headsign when provided by Google. The endpoint can be overridden with `GOOGLE_ROUTES_API_ENDPOINT` when needed.
 
 ## Temporary Qwen ask endpoint
 
