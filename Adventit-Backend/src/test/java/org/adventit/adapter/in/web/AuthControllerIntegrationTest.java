@@ -19,6 +19,9 @@ import org.adventit.application.port.in.PlanTripUseCase;
 import org.adventit.application.port.in.AskQuestionUseCase;
 import org.adventit.domain.trip.TravelAlternative;
 import org.adventit.domain.trip.TravelMode;
+import org.adventit.domain.trip.RouteStep;
+import org.adventit.domain.trip.TransitDetails;
+import org.adventit.domain.trip.TransitStop;
 import org.adventit.domain.trip.TripPlan;
 import org.adventit.domain.trip.TripRoute;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -226,7 +229,22 @@ class AuthControllerIntegrationTest {
                         List.of(
                                 new TravelAlternative(
                                         TravelMode.TRANSIT,
-                                        List.of(new TripRoute(900, 2500, "transit-line"))),
+                                        List.of(new TripRoute(
+                                                900,
+                                                2500,
+                                                "transit-line",
+                                                List.of(new RouteStep(
+                                                        "TRANSIT",
+                                                        null,
+                                                        null,
+                                                        null,
+                                                        new TransitDetails(
+                                                                new TransitStop("Central Station"),
+                                                                new TransitStop("City Museum"),
+                                                                null,
+                                                                null,
+                                                                "City Centre",
+                                                                null)))))),
                                 new TravelAlternative(
                                         TravelMode.WALK,
                                         List.of(new TripRoute(1800, 2100, "walking-line"))))));
@@ -242,6 +260,13 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.endPlace", is("City Museum")))
                 .andExpect(jsonPath("$.alternatives[0].travelMode", is("TRANSIT")))
                 .andExpect(jsonPath("$.alternatives[0].routes[0].durationSeconds", is(900)))
+                .andExpect(jsonPath("$.alternatives[0].routes[0].steps[0].travelMode", is("TRANSIT")))
+                .andExpect(jsonPath(
+                        "$.alternatives[0].routes[0].steps[0].transitDetails.departureStop.name",
+                        is("Central Station")))
+                .andExpect(jsonPath(
+                        "$.alternatives[0].routes[0].steps[0].transitDetails.headsign",
+                        is("City Centre")))
                 .andExpect(jsonPath("$.alternatives[1].travelMode", is("WALK")))
                 .andExpect(jsonPath("$.alternatives[1].routes[0].encodedPolyline", is("walking-line")));
 
