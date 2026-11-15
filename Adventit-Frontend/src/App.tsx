@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   Clock3,
@@ -15,7 +15,7 @@ import {
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-const GOOGLE_MAPS_EMBED_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY ?? ''
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? ''
 
 type AuthMode = 'login' | 'register'
 type View = 'dashboard' | 'planner' | 'insights'
@@ -54,7 +54,7 @@ type RouteStep = {
 type TripRoute = {
   durationSeconds: number
   distanceMeters: number
-  encodedPolyline?: string
+  encodedPolyline: string
   steps: RouteStep[]
 }
 
@@ -131,32 +131,156 @@ function formatMode(travelMode: string): string {
   return travelMode
 }
 
+type MapPoint = google.maps.LatLngLiteral
+
+type GoogleMapsWindow = typeof window & {
+  google?: typeof google
+}
+
+let googleMapsPromise: Promise<void> | undefined
+
+function loadGoogleMaps(): Promise<void> {
+  const maps = (window as GoogleMapsWindow).google?.maps
+  if (maps) {
+    return Promise.resolve()
+  }
+
+  if (!googleMapsPromise) {
+    googleMapsPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script')
+      const scriptUrl = new URL('https://maps.googleapis.com/maps/api/js')
+      scriptUrl.searchParams.set('key', GOOGLE_MAPS_API_KEY)
+      scriptUrl.searchParams.set('v', 'weekly')
+      script.src = scriptUrl.toString()
+      script.async = true
+      script.onload = () => {
+        if ((window as GoogleMapsWindow).google?.maps) {
+          resolve()
+        } else {
+          googleMapsPromise = undefined
+          reject(new Error('Google Maps JavaScript API did not initialize.'))
+        }
+      }
+      script.onerror = () => {
+        googleMapsPromise = undefined
+        reject(new Error('Unable to load Google Maps JavaScript API.'))
+      }
+      document.head.appendChild(script)
+    })
+  }
+
+  return googleMapsPromise
+}
+
+function decodePolyline(encodedPolyline: string): MapPoint[] {
+  const points: MapPoint[] = []
+  let latitude = 0
+  let longitude = 0
+  let index = 0
+
+  const decodeCoordinate = () => {
+    let value = 0
+    let shift = 0
+
+    while (index < encodedPolyline.length && shift <= 30) {
+      const chunk = encodedPolyline.charCodeAt(index++) - 63
+      if (chunk < 0 || chunk > 63) {
+        return null
+      }
+
+      value += (chunk & 0x1f) * 2 ** shift
+      if (chunk < 0x20) {
+        return value % 2 === 1 ? -(value + 1) / 2 : value / 2
+      }
+      shift += 5
+    }
+
+    return null
+  }
+
+  while (index < encodedPolyline.length) {
+    const latitudeDelta = decodeCoordinate()
+    const longitudeDelta = decodeCoordinate()
+    if (latitudeDelta === null || longitudeDelta === null) {
+      return []
+    }
+
+    latitude += latitudeDelta
+    longitude += longitudeDelta
+    const point = { lat: latitude / 1e5, lng: longitude / 1e5 }
+    if (point.lat < -90 || point.lat > 90 || point.lng < -180 || point.lng > 180) {
+      return []
+    }
+    points.push(point)
+  }
+
+  return points
+}
+
 function RouteMap({
-  travelMode,
+  encodedPolyline,
   startPlace,
   endPlace,
 }: {
-  travelMode: string
+  encodedPolyline: string
   startPlace: string
   endPlace: string
 }) {
-  const directionsUrl = new URL('https://www.google.com/maps/dir/')
-  directionsUrl.searchParams.set('api', '1')
-  directionsUrl.searchParams.set('origin', startPlace)
-  directionsUrl.searchParams.set('destination', endPlace)
-  directionsUrl.searchParams.set(
-    'travelmode',
-    travelMode === 'TRANSIT' ? 'transit' : 'walking',
-  )
+  const mapElement = useRef<HTMLDivElement>(null)
+  const [mapError, setMapError] = useState('')
+  const points = useMemo(() => decodePolyline(encodedPolyline), [encodedPolyline])
 
-  const embedUrl = new URL('https://www.google.com/maps/embed/v1/directions')
-  embedUrl.searchParams.set('key', GOOGLE_MAPS_EMBED_API_KEY)
-  embedUrl.searchParams.set('origin', startPlace)
-  embedUrl.searchParams.set('destination', endPlace)
-  embedUrl.searchParams.set(
-    'mode',
-    travelMode === 'TRANSIT' ? 'transit' : 'walking',
-  )
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY || points.length < 2 || !mapElement.current) {
+      return
+    }
+
+    let cancelled = false
+    let routeLine: google.maps.Polyline | undefined
+
+    void loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapElement.current) {
+          return
+        }
+
+        const maps = (window as GoogleMapsWindow).google?.maps
+        if (!maps) {
+          throw new Error('Google Maps JavaScript API did not initialize.')
+        }
+
+        const map = new maps.Map(mapElement.current, {
+          center: points[0],
+          zoom: 12,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+        })
+        const bounds = new maps.LatLngBounds()
+        points.forEach((point) => bounds.extend(point))
+        map.fitBounds(bounds, 48)
+        routeLine = new maps.Polyline({
+          path: points,
+          geodesic: true,
+          strokeColor: '#06b6d4',
+          strokeOpacity: 0.95,
+          strokeWeight: 6,
+        })
+        routeLine.setMap(map)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setMapError(
+            error instanceof Error ? error.message : 'Unable to display this route on Google Maps.',
+          )
+        }
+      })
+
+    return () => {
+      cancelled = true
+      routeLine?.setMap(null)
+    }
+  }, [encodedPolyline, points])
 
   return (
     <div className="route-map-wrap">
@@ -164,21 +288,21 @@ function RouteMap({
         <strong>Route map</strong>
         <span title={`${startPlace} → ${endPlace}`}>{startPlace} → {endPlace}</span>
       </div>
-      {GOOGLE_MAPS_EMBED_API_KEY ? (
-        <iframe
-          className="route-map"
-          src={embedUrl.toString()}
-          title={`${formatMode(travelMode)} route from ${startPlace} to ${endPlace}`}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+      {GOOGLE_MAPS_API_KEY && points.length >= 2 ? (
+        <>
+          <div
+            className="route-map"
+            ref={mapElement}
+            role="region"
+            aria-label={`Google Map showing the route from ${startPlace} to ${endPlace}`}
+          />
+          {mapError ? <div className="route-map-unavailable" role="alert">{mapError}</div> : null}
+        </>
       ) : (
         <div className="route-map-unavailable" role="status">
-          <p>Set VITE_GOOGLE_MAPS_EMBED_API_KEY to show the embedded Google Map.</p>
-          <a href={directionsUrl.toString()} target="_blank" rel="noopener noreferrer">
-            Open directions in Google Maps
-          </a>
+          {!GOOGLE_MAPS_API_KEY
+            ? 'Set VITE_GOOGLE_MAPS_API_KEY to display the route returned by the trip planner.'
+            : 'The trip planner did not return a valid route path.'}
         </div>
       )}
     </div>
@@ -651,7 +775,7 @@ function App() {
                       </div>
 
                       <RouteMap
-                        travelMode={alternative.travelMode}
+                        encodedPolyline={route.encodedPolyline}
                         startPlace={tripResult?.startPlace ?? 'Origin'}
                         endPlace={tripResult?.endPlace ?? 'Destination'}
                       />

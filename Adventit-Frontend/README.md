@@ -4,12 +4,12 @@ This template provides a minimal setup to get React working in Vite with HMR and
 
 ## Google Maps
 
-The trip planner embeds Google Maps directions. Enable the Maps Embed API in Google Cloud,
-create a browser key restricted to that API and your development/production HTTP referrers,
-then add it to `.env.local`:
+The trip planner draws the route returned by the backend on Google Maps. Enable the Maps
+JavaScript API in Google Cloud, create a browser key restricted to that API and your
+development/production HTTP referrers, then add it to `.env.local`:
 
 ```env
-VITE_GOOGLE_MAPS_EMBED_API_KEY=your_browser_restricted_key
+VITE_GOOGLE_MAPS_API_KEY=your_browser_restricted_key
 ```
 
 Vite exposes `VITE_` variables in the browser, so do not use the backend Routes API key here.
