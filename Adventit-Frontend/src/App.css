@@ -556,6 +556,98 @@
   color: #ecf6ff;
 }
 
+.route-map-wrap {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 18% 72%, rgba(34, 197, 94, 0.1), transparent 28%),
+    radial-gradient(ellipse at 82% 24%, rgba(56, 189, 248, 0.1), transparent 30%),
+    #101d2c;
+}
+
+.route-map-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem 0;
+  color: #ecf6ff;
+}
+
+.route-map-heading span {
+  max-width: 70%;
+  color: #9bb0ce;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.route-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 340px;
+}
+
+.map-street {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.14);
+  stroke-width: 22;
+}
+
+.map-street-secondary {
+  stroke: rgba(148, 163, 184, 0.08);
+  stroke-width: 12;
+  stroke-dasharray: 4 14;
+}
+
+.route-line-outline,
+.route-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.route-line-outline {
+  stroke: rgba(4, 12, 24, 0.8);
+  stroke-width: 16;
+}
+
+.route-line {
+  stroke: #67e8f9;
+  stroke-width: 9;
+  filter: drop-shadow(0 2px 6px rgba(34, 211, 238, 0.5));
+}
+
+.route-marker {
+  stroke: #f0f9ff;
+  stroke-width: 4;
+}
+
+.route-marker-start {
+  fill: #10b981;
+}
+
+.route-marker-end {
+  fill: #f97373;
+}
+
+.route-marker-label {
+  fill: white;
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.route-map-unavailable {
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  color: #9bb0ce;
+  font-size: 0.9rem;
+}
+
 .steps-list {
   display: grid;
   gap: 0.75rem;
@@ -669,5 +761,15 @@
 
   .route-stats {
     grid-template-columns: 1fr;
+  }
+
+  .route-map-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .route-map-heading span {
+    max-width: 100%;
+    text-align: left;
   }
 }

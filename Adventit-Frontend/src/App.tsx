@@ -53,6 +53,7 @@ type RouteStep = {
 type TripRoute = {
   durationSeconds: number
   distanceMeters: number
+  encodedPolyline?: string
   steps: RouteStep[]
 }
 
@@ -127,6 +128,139 @@ function formatMode(travelMode: string): string {
   }
 
   return travelMode
+}
+
+type MapPoint = {
+  latitude: number
+  longitude: number
+}
+
+function decodePolyline(encodedPolyline: string): MapPoint[] {
+  const points: MapPoint[] = []
+  let latitude = 0
+  let longitude = 0
+  let index = 0
+
+  const decodeCoordinate = () => {
+    let value = 0
+    let shift = 0
+
+    while (index < encodedPolyline.length && shift <= 30) {
+      const chunk = encodedPolyline.charCodeAt(index++) - 63
+      if (chunk < 0 || chunk > 63) {
+        return null
+      }
+
+      value += (chunk & 0x1f) * 2 ** shift
+      if (chunk < 0x20) {
+        return value % 2 === 1 ? -(value + 1) / 2 : value / 2
+      }
+      shift += 5
+    }
+
+    return null
+  }
+
+  while (index < encodedPolyline.length) {
+    const latitudeDelta = decodeCoordinate()
+    const longitudeDelta = decodeCoordinate()
+    if (latitudeDelta === null || longitudeDelta === null) {
+      return []
+    }
+
+    latitude += latitudeDelta
+    longitude += longitudeDelta
+    const point = { latitude: latitude / 1e5, longitude: longitude / 1e5 }
+    if (
+      point.latitude < -90 ||
+      point.latitude > 90 ||
+      point.longitude < -180 ||
+      point.longitude > 180
+    ) {
+      return []
+    }
+    points.push(point)
+  }
+
+  return points
+}
+
+function RouteMap({
+  encodedPolyline,
+  startPlace,
+  endPlace,
+}: {
+  encodedPolyline?: string
+  startPlace: string
+  endPlace: string
+}) {
+  const points = encodedPolyline ? decodePolyline(encodedPolyline) : []
+
+  if (points.length < 2) {
+    return (
+      <div className="route-map-unavailable" role="status">
+        Route map is unavailable for this itinerary.
+      </div>
+    )
+  }
+
+  const bounds = points.reduce(
+    (current, point) => ({
+      minLongitude: Math.min(current.minLongitude, point.longitude),
+      maxLongitude: Math.max(current.maxLongitude, point.longitude),
+      minLatitude: Math.min(current.minLatitude, point.latitude),
+      maxLatitude: Math.max(current.maxLatitude, point.latitude),
+    }),
+    {
+      minLongitude: Infinity,
+      maxLongitude: -Infinity,
+      minLatitude: Infinity,
+      maxLatitude: -Infinity,
+    },
+  )
+  const centerLongitude = (bounds.minLongitude + bounds.maxLongitude) / 2
+  const centerLatitude = (bounds.minLatitude + bounds.maxLatitude) / 2
+  const longitudeScale = Math.cos((centerLatitude * Math.PI) / 180)
+  const longitudeRange = Math.max(
+    (bounds.maxLongitude - bounds.minLongitude) * longitudeScale,
+    0.00001,
+  )
+  const latitudeRange = Math.max(bounds.maxLatitude - bounds.minLatitude, 0.00001)
+  const scale = Math.min(880 / longitudeRange, 380 / latitudeRange)
+  const project = (point: MapPoint) => ({
+    x: 500 + (point.longitude - centerLongitude) * longitudeScale * scale,
+    y: 250 - (point.latitude - centerLatitude) * scale,
+  })
+  const projectedPoints = points.map(project)
+  const routePath = projectedPoints
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ')
+  const start = projectedPoints[0]
+  const end = projectedPoints[projectedPoints.length - 1]
+
+  return (
+    <div className="route-map-wrap">
+      <div className="route-map-heading">
+        <strong>Route map</strong>
+        <span title={`${startPlace} → ${endPlace}`}>{startPlace} → {endPlace}</span>
+      </div>
+      <svg
+        className="route-map"
+        viewBox="0 0 1000 500"
+        role="img"
+        aria-label={`Map showing the route from ${startPlace} to ${endPlace}`}
+      >
+        <path className="map-street" d="M 0 100 H 1000 M 0 400 H 1000 M 180 0 V 500 M 820 0 V 500" />
+        <path className="map-street map-street-secondary" d="M 0 250 H 1000 M 500 0 V 500" />
+        <path className="route-line-outline" d={routePath} />
+        <path className="route-line" d={routePath} />
+        <circle className="route-marker route-marker-start" cx={start.x} cy={start.y} r="15" />
+        <text className="route-marker-label" x={start.x} y={start.y + 5}>S</text>
+        <circle className="route-marker route-marker-end" cx={end.x} cy={end.y} r="15" />
+        <text className="route-marker-label" x={end.x} y={end.y + 5}>E</text>
+      </svg>
+    </div>
+  )
 }
 
 function App() {
@@ -505,6 +639,7 @@ function App() {
                   <span>Departure date</span>
                   <input
                     type="date"
+                    max="9999-12-31"
                     value={tripForm.departureDate}
                     onChange={(event) => handlePlannerInput('departureDate', event.target.value)}
                   />
@@ -592,6 +727,12 @@ function App() {
                           <strong>{routeIndex + 1}</strong>
                         </div>
                       </div>
+
+                      <RouteMap
+                        encodedPolyline={route.encodedPolyline}
+                        startPlace={tripResult?.startPlace ?? 'Origin'}
+                        endPlace={tripResult?.endPlace ?? 'Destination'}
+                      />
 
                       <div className="steps-list">
                         {route.steps.length === 0 ? (
