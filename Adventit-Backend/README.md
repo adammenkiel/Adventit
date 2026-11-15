@@ -23,9 +23,9 @@ Emails are normalized to lowercase. Passwords must contain 8-72 characters and a
 
 Set `GOOGLE_ROUTES_API_KEY` to an API key with the Google Routes API enabled. `POST /app/trip` requires an authenticated user and accepts `{ "startPlace": "...", "endPlace": "..." }`, where both values are place addresses. It returns route options for public transport (`TRANSIT`) and walking (`WALK`), with duration, distance, an encoded polyline, and ordered journey steps for each available route. Transit steps include stop names, departure and arrival times, line and vehicle information, and headsign when provided by Google. The endpoint can be overridden with `GOOGLE_ROUTES_API_ENDPOINT` when needed.
 
-## Temporary Qwen ask endpoint
+## AI integration
 
-`POST /app/ask` is available only to authenticated users and accepts `{ "question": "..." }` (up to 4000 characters). It returns `{ "answer": "..." }` using the local Ollama chat API. Start Ollama with a Qwen model available (for example, `ollama run qwen2.5`); the default model is `qwen2.5:latest`. Set `QWEN_MODEL` to use another installed model and `QWEN_OLLAMA_ENDPOINT` to override the default `http://localhost:11434/api/chat`.
+The backend retains an Ollama-backed question-answering service. It uses the `qwen2.5:3b` model by default; set `QWEN_MODEL` to use another installed model and `QWEN_OLLAMA_ENDPOINT` to override the default `http://localhost:11434/api/chat`.
 
 ## Test
 
