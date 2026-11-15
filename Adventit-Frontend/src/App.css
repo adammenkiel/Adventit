@@ -417,6 +417,10 @@
   border: 1px solid transparent;
 }
 
+.app-shell > .banner {
+  margin-bottom: 1.5rem;
+}
+
 .banner.success {
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.24);
@@ -556,6 +560,58 @@
   color: #ecf6ff;
 }
 
+.route-map-wrap {
+  overflow: hidden;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 18% 72%, rgba(34, 197, 94, 0.1), transparent 28%),
+    radial-gradient(ellipse at 82% 24%, rgba(56, 189, 248, 0.1), transparent 30%),
+    #101d2c;
+}
+
+.route-map-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem 0;
+  color: #ecf6ff;
+}
+
+.route-map-heading span {
+  max-width: 70%;
+  color: #9bb0ce;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.route-map {
+  display: block;
+  width: 100%;
+  height: clamp(280px, 42vw, 360px);
+  border: 0;
+}
+
+.route-map-unavailable {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  color: #9bb0ce;
+  font-size: 0.9rem;
+}
+
+.route-map-unavailable p {
+  margin: 0;
+}
+
+.route-map-unavailable a {
+  color: #8be9ff;
+  font-weight: 700;
+}
+
 .steps-list {
   display: grid;
   gap: 0.75rem;
@@ -669,5 +725,15 @@
 
   .route-stats {
     grid-template-columns: 1fr;
+  }
+
+  .route-map-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .route-map-heading span {
+    max-width: 100%;
+    text-align: left;
   }
 }
