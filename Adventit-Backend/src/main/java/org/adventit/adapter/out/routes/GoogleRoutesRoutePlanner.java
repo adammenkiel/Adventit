@@ -66,30 +66,40 @@ public class GoogleRoutesRoutePlanner implements RoutePlanner {
     }
 
     private static TripRoute toTripRoute(GoogleRoute route) {
-        String duration = Objects.requireNonNull(route.duration(), "Google route duration is missing");
-        if (!duration.matches("\\d+(\\.\\d+)?s")) {
-            throw new IllegalStateException("Google Routes API returned an invalid route duration");
-        }
-        long durationSeconds = new BigDecimal(duration.substring(0, duration.length() - 1))
-                .setScale(0, RoundingMode.CEILING)
-                .longValueExact();
+        long durationSeconds = parseDurationSeconds(
+                Objects.requireNonNull(route.duration(), "Google route duration is missing"));
         int distanceMeters =
                 Objects.requireNonNull(route.distanceMeters(), "Google route distance is missing");
         String encodedPolyline = Objects.requireNonNull(
                 route.polyline(), "Google route polyline is missing").encodedPolyline();
+
         return new TripRoute(
                 durationSeconds,
                 distanceMeters,
                 Objects.requireNonNull(encodedPolyline, "Google route encoded polyline is missing"),
-                route.legs() == null
-                        ? List.of()
-                        : route.legs().stream()
-                                .filter(Objects::nonNull)
-                                .filter(leg -> leg.steps() != null)
-                                .flatMap(leg -> leg.steps().stream())
-                                .filter(Objects::nonNull)
-                                .map(GoogleRoutesRoutePlanner::toRouteStep)
-                                .toList());
+                toRouteSteps(route));
+    }
+
+    private static long parseDurationSeconds(String duration) {
+        if (!duration.matches("\\d+(\\.\\d+)?s")) {
+            throw new IllegalStateException("Google Routes API returned an invalid route duration");
+        }
+        return new BigDecimal(duration.substring(0, duration.length() - 1))
+                .setScale(0, RoundingMode.CEILING)
+                .longValueExact();
+    }
+
+    private static List<RouteStep> toRouteSteps(GoogleRoute route) {
+        if (route.legs() == null) {
+            return List.of();
+        }
+        return route.legs().stream()
+                .filter(Objects::nonNull)
+                .filter(leg -> leg.steps() != null)
+                .flatMap(leg -> leg.steps().stream())
+                .filter(Objects::nonNull)
+                .map(GoogleRoutesRoutePlanner::toRouteStep)
+                .toList();
     }
 
     private static RouteStep toRouteStep(GoogleStep step) {

@@ -6,7 +6,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 import org.adventit.application.port.out.AuthenticationTokenProvider;
@@ -20,6 +19,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
+    private static final String TOKEN_COOKIE_NAME = "token";
+    private static final String INVALID_TOKEN_MESSAGE = "Authentication token is incorrect!";
+
     private final AuthenticationTokenProvider authenticationTokenProvider;
     private final UserDetailsService userDetailsService;
 
@@ -35,35 +37,56 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            Optional<String> token = getToken(request);
-            if (token.isPresent()) {
-                Optional<String> subject = authenticationTokenProvider.getSubject(token.get());
-                if (subject.isEmpty()) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authentication token is incorrect!");
-                    return;
-                }
-                UserDetails userDetails;
-                try {
-                    userDetails = userDetailsService.loadUserByUsername(subject.get());
-                } catch (UsernameNotFoundException exception) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authentication token is incorrect!");
-                    return;
-                }
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails.getUsername(),
-                                null,
-                                userDetails.getAuthorities()
-                        );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContext context = SecurityContextHolder.createEmptyContext();
-                context.setAuthentication(authentication);
-                SecurityContextHolder.setContext(context);
-            }
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
+            return;
         }
+
+        Optional<String> token = getToken(request);
+        if (token.isEmpty()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Optional<String> subject = authenticationTokenProvider.getSubject(token.get());
+        if (subject.isEmpty()) {
+            rejectInvalidToken(response);
+            return;
+        }
+
+        UserDetails userDetails = loadUserDetails(subject.get(), response);
+        if (userDetails == null) {
+            return;
+        }
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(createAuthentication(request, userDetails));
+        SecurityContextHolder.setContext(context);
         filterChain.doFilter(request, response);
+    }
+
+    private UserDetails loadUserDetails(String email, HttpServletResponse response) throws IOException {
+        try {
+            return userDetailsService.loadUserByUsername(email);
+        } catch (UsernameNotFoundException exception) {
+            rejectInvalidToken(response);
+            return null;
+        }
+    }
+
+    private UsernamePasswordAuthenticationToken createAuthentication(
+            HttpServletRequest request, UserDetails userDetails) {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        userDetails.getUsername(),
+                        null,
+                        userDetails.getAuthorities());
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        return authentication;
+    }
+
+    private void rejectInvalidToken(HttpServletResponse response) throws IOException {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, INVALID_TOKEN_MESSAGE);
     }
 
     private Optional<String> getToken(HttpServletRequest request) {
@@ -72,7 +95,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
             return Optional.empty();
         }
         return Arrays.stream(cookies)
-                .filter(cookie -> "token".equals(cookie.getName()))
+                .filter(cookie -> TOKEN_COOKIE_NAME.equals(cookie.getName()))
                 .map(Cookie::getValue)
                 .findFirst();
     }
