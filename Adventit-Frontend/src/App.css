@@ -417,6 +417,10 @@
   border: 1px solid transparent;
 }
 
+.app-shell > .banner {
+  margin-bottom: 1.5rem;
+}
+
 .banner.success {
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.24);
@@ -558,6 +562,7 @@
 
 .route-map-wrap {
   overflow: hidden;
+  margin-bottom: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 14px;
   background:
@@ -586,66 +591,25 @@
 .route-map {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 340px;
-}
-
-.map-street {
-  fill: none;
-  stroke: rgba(148, 163, 184, 0.14);
-  stroke-width: 22;
-}
-
-.map-street-secondary {
-  stroke: rgba(148, 163, 184, 0.08);
-  stroke-width: 12;
-  stroke-dasharray: 4 14;
-}
-
-.route-line-outline,
-.route-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.route-line-outline {
-  stroke: rgba(4, 12, 24, 0.8);
-  stroke-width: 16;
-}
-
-.route-line {
-  stroke: #67e8f9;
-  stroke-width: 9;
-  filter: drop-shadow(0 2px 6px rgba(34, 211, 238, 0.5));
-}
-
-.route-marker {
-  stroke: #f0f9ff;
-  stroke-width: 4;
-}
-
-.route-marker-start {
-  fill: #10b981;
-}
-
-.route-marker-end {
-  fill: #f97373;
-}
-
-.route-marker-label {
-  fill: white;
-  font-size: 15px;
-  font-weight: 700;
-  text-anchor: middle;
+  height: clamp(280px, 42vw, 360px);
+  border: 0;
 }
 
 .route-map-unavailable {
+  display: grid;
+  gap: 0.8rem;
   padding: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 14px;
   color: #9bb0ce;
   font-size: 0.9rem;
+}
+
+.route-map-unavailable p {
+  margin: 0;
+}
+
+.route-map-unavailable a {
+  color: #8be9ff;
+  font-weight: 700;
 }
 
 .steps-list {
