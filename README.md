@@ -65,3 +65,6 @@ Run backend tests from `Adventit-Backend` with `.\gradlew.bat test`. Run the fro
 ## Development assistance
 
 GitHub Copilot Agent was used to assist with the development process.
+
+## Video
+Link: https://youtu.be/IqrnP5_zy9U
